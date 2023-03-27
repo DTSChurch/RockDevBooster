@@ -153,7 +153,7 @@ namespace com.blueboxmoon.RockDevBooster.Bootstrap.Objects
         /// </summary>
         /// <param name="command">The command.</param>
         /// <returns></returns>
-        protected List<Dictionary<string, object>> GetResultsFromCommand( System.Data.SqlClient.SqlCommand command )
+        protected List<Dictionary<string, object>> GetResultsFromCommand( Microsoft.Data.SqlClient.SqlCommand command )
         {
             try
             {

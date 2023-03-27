@@ -10,7 +10,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Navigation;
 
-using System.Data.SqlLocalDb;
+using MartinCostello.SqlLocalDb;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.ComponentModel;
@@ -32,7 +32,9 @@ namespace com.blueboxmoon.RockDevBooster.Views
         /// <summary>
         /// Identifies the SQL Server Local DB instance that we are running.
         /// </summary>
-        private SqlLocalDbInstance localDb = null;
+        private SqlLocalDbApi localDb = null;
+
+        private ISqlLocalDbInstanceInfo instance = null;
 
         /// <summary>
         /// Template to be used when building the webConnectionString.config file.
@@ -160,28 +162,30 @@ namespace com.blueboxmoon.RockDevBooster.Views
             //
             if ( localDb == null )
             {
-                var provider = new SqlLocalDbProvider();
-                SqlLocalDbInstance instance;
+                localDb = new SqlLocalDbApi();
 
                 try
                 {
                     //
                     // If we find an existing instance then shut it down and delete it.
                     //
-                    instance = provider.GetInstance( "RockDevBooster" );
-                    if ( instance.IsRunning )
+                    if (localDb.InstanceExists("RockDevBooster"))
                     {
-                        instance.Stop();
+                        var instance = localDb.GetInstanceInfo("RockDevBooster");
+                        if (instance.IsRunning) 
+                        {
+                            localDb.StopInstance("RockDevBooster");
+                        }
+                        localDb.DeleteInstance("RockDevBooster");
                     }
-                    SqlLocalDbInstance.Delete( instance );
                 }
                 finally
                 {
                     //
                     // Create a new instance and keep a reference to it.
                     //
-                    localDb = provider.CreateInstance( "RockDevBooster" );
-                    localDb.Start();
+                    instance = localDb.CreateInstance("RockDevBooster");
+                    localDb.StartInstance("RockDevBooster");
                 }
             }
 
@@ -371,7 +375,7 @@ namespace com.blueboxmoon.RockDevBooster.Views
             {
                 try
                 {
-                    using ( var connection = localDb.CreateConnection() )
+                    using ( var connection = GetSqlConnection())
                     {
                         connection.Open();
 
@@ -411,7 +415,7 @@ namespace com.blueboxmoon.RockDevBooster.Views
         /// Gets the SQL connection to the running instance.
         /// </summary>
         /// <returns></returns>
-        public System.Data.SqlClient.SqlConnection GetSqlConnection()
+        public Microsoft.Data.SqlClient.SqlConnection GetSqlConnection()
         {
             if ( RunningInstanceName == null )
             {
@@ -420,18 +424,23 @@ namespace com.blueboxmoon.RockDevBooster.Views
 
             try
             {
-                var connection = localDb.CreateConnection();
+                var connection = instance?.CreateConnection();
+
+                if ( connection == null )
+                {
+                    return null;
+                }
 
                 connection.Open();
                 connection.ChangeDatabase( RunningInstanceName );
 
                 return connection;
             }
-            catch ( Exception e )
+            catch (Exception)
             {
                 Debugger.Launch();
                 Debugger.Break();
-                throw e;
+                throw;
             }
         }
 
@@ -461,9 +470,9 @@ namespace com.blueboxmoon.RockDevBooster.Views
             //
             if ( localDb != null )
             {
-                if ( localDb.IsRunning )
+                if ( instance.IsRunning )
                 {
-                    localDb.Stop();
+                    localDb.StopInstance(instance.Name);
                 }
 
                 localDb = null;
